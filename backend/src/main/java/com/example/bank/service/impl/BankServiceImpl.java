@@ -1,0 +1,224 @@
+package com.example.bank.service.impl;
+
+import com.example.bank.dto.*;
+import com.example.bank.exception.AccountNotFoundException;
+import com.example.bank.exception.InsufficientFundsException;
+import com.example.bank.exception.InvalidInputException;
+import com.example.bank.model.Account;
+import com.example.bank.model.Customer;
+import com.example.bank.model.Transaction;
+import com.example.bank.repository.AccountRepository;
+import com.example.bank.repository.TransactionRepository;
+import com.example.bank.service.BankService;
+import com.example.bank.service.OtpService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class BankServiceImpl implements BankService {
+
+    private final AccountRepository accountRepository;
+    private final TransactionRepository transactionRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final OtpService otpService;
+
+    @Override
+    @Transactional
+    public String createAccount(CreateAccountRequest request) {
+        Customer customer = new Customer(
+                request.getCustomerName(),
+                request.getEmail()
+        );
+
+        String accountNumber = generateAccountNumber();
+
+        Account account = new Account();
+        account.setAccountNumber(accountNumber);
+        account.setType(Account.AccountType.valueOf(request.getAccountType()));
+        account.setCustomer(customer);
+        account.setPassword(passwordEncoder.encode(request.getPassword()));
+        account.setBalance(BigDecimal.ZERO);
+
+        accountRepository.save(account);
+        return accountNumber;
+    }
+
+    @Override
+    public AccountResponse getAccount(String accountNumber) {
+        Account account = findAccountByNumber(accountNumber);
+        return mapToAccountResponse(account);
+    }
+
+    @Override
+    @Transactional
+    public void deposit(String accountNumber, BigDecimal amount) {
+        validateAmount(amount);
+
+        Account account = findAccountByNumber(accountNumber);
+        account.deposit(amount);
+
+        Transaction tx = Transaction.deposit(account, amount);
+        transactionRepository.save(tx);
+        accountRepository.save(account);
+    }
+
+    @Override
+    @Transactional
+    public void withdraw(String accountNumber, BigDecimal amount) {
+        validateAmount(amount);
+
+        Account account = findAccountByNumber(accountNumber);
+
+        if (account.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientFundsException("Insufficient balance");
+        }
+
+        account.withdraw(amount);
+
+        Transaction tx = Transaction.withdraw(account, amount);
+        transactionRepository.save(tx);
+        accountRepository.save(account);
+    }
+
+    @Override
+    @Transactional
+    public void transfer(String fromAccount, String toAccount,
+                         BigDecimal amount, String otp) {
+
+        validateAmount(amount);
+
+        if (amount.compareTo(new BigDecimal("10000")) > 0) {
+            if (otp == null || !otpService.verifyOtp(fromAccount, otp)) {
+                throw new InvalidInputException("Invalid or expired OTP");
+            }
+        }
+
+        Account from = findAccountByNumber(fromAccount);
+        Account to = findAccountByNumber(toAccount);
+
+        if (from.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientFundsException("Insufficient balance");
+        }
+
+        from.withdraw(amount);
+        to.deposit(amount);
+
+        transactionRepository.save(Transaction.transferOut(from, toAccount, amount));
+        transactionRepository.save(Transaction.transferIn(to, fromAccount, amount));
+
+        accountRepository.save(from);
+        accountRepository.save(to);
+    }
+
+    @Override
+    public List<TransactionResponse> getTransactions(String accountNumber) {
+        findAccountByNumber(accountNumber);
+
+        return transactionRepository
+                .findByAccountAccountNumberOrderByTransactionTimeDesc(accountNumber)
+                .stream()
+                .map(this::mapToTransactionResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<AccountResponse> getAllAccounts() {
+        return accountRepository.findAll()
+                .stream()
+                .map(this::mapToAccountResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public BigDecimal getBalance(String accountNumber) {
+        return findAccountByNumber(accountNumber).getBalance();
+    }
+
+    @Override
+    public Account findAccountByNumber(String accountNumber) {
+        return accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() ->
+                        new AccountNotFoundException("Account not found: " + accountNumber));
+    }
+
+    private void validateAmount(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidInputException("Amount must be greater than zero");
+        }
+    }
+
+    private String generateAccountNumber() {
+        String number;
+        do {
+            number = "APB" + String.format("%012d",
+                    new Random().nextLong(1_000_000_000_000L));
+        } while (accountRepository.existsByAccountNumber(number));
+        return number;
+    }
+
+    private AccountResponse mapToAccountResponse(Account account) {
+        return new AccountResponse(
+                account.getAccountNumber(),
+                account.getType().name(),
+                account.getBalance(),
+                account.getCustomer().getName(),
+                account.getCustomer().getEmail(),
+                account.getCreatedAt()
+        );
+    }
+
+    private TransactionResponse mapToTransactionResponse(Transaction tx) {
+        return new TransactionResponse(
+                tx.getId(),
+                tx.getType().name(),
+                tx.getAmount(),
+                tx.getBalanceAfter(),
+                tx.getRelatedAccount(),
+                tx.getDescription(),
+                tx.getTransactionTime()
+        );
+    }
+    @Override
+public Map<String, Object> getAnalytics(String accountNumber) {
+
+    Account account = findAccountByNumber(accountNumber);
+
+    List<Transaction> transactions =
+            transactionRepository.findByAccountAccountNumberOrderByTransactionTimeDesc(accountNumber);
+
+    BigDecimal totalDeposits = BigDecimal.ZERO;
+    BigDecimal totalWithdrawals = BigDecimal.ZERO;
+
+    for (Transaction tx : transactions) {
+        if (tx.getType() == Transaction.TransactionType.DEPOSIT
+                || tx.getType() == Transaction.TransactionType.TRANSFER_IN) {
+            totalDeposits = totalDeposits.add(tx.getAmount());
+        }
+        if (tx.getType() == Transaction.TransactionType.WITHDRAW
+                || tx.getType() == Transaction.TransactionType.TRANSFER_OUT) {
+            totalWithdrawals = totalWithdrawals.add(tx.getAmount());
+        }
+    }
+
+    Map<String, Object> analytics = new HashMap<>();
+    analytics.put("accountNumber", accountNumber);
+    analytics.put("balance", account.getBalance());
+    analytics.put("totalDeposits", totalDeposits);
+    analytics.put("totalWithdrawals", totalWithdrawals);
+    analytics.put("transactionCount", transactions.size());
+
+    return analytics;
+}
+
+    
+
+}
