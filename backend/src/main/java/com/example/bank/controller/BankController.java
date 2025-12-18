@@ -1,91 +1,201 @@
 package com.example.bank.controller;
 
+import com.example.bank.model.Account;
+import com.example.bank.model.Transaction;
+import com.example.bank.repository.AccountRepository;
+import com.example.bank.repository.TransactionRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.web.bind.annotation.*;
-
-import com.example.bank.dto.*;
-import com.example.bank.model.Account;
-import com.example.bank.service.BankService;
-
-import lombok.RequiredArgsConstructor;
-
 @RestController
 @RequestMapping("/api/accounts")
-@CrossOrigin(origins = "http://localhost:3000")
-@RequiredArgsConstructor
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class BankController {
-
-    private final BankService bankService;
-
+    
+    private final AccountRepository accountRepository;
+    private final TransactionRepository transactionRepository;
+    
+    public BankController(AccountRepository accountRepository, TransactionRepository transactionRepository) {
+        this.accountRepository = accountRepository;
+        this.transactionRepository = transactionRepository;
+    }
+    
     // ✅ CREATE ACCOUNT
-    @PostMapping("/create")
-    public String createAccount(@RequestBody CreateAccountRequest request) {
-        return bankService.createAccount(request);
+    @PostMapping
+    public ResponseEntity<?> createAccount(
+            @RequestParam String name,
+            @RequestParam BigDecimal balance,
+            @RequestParam(required = false, defaultValue = "SAVINGS") String type,
+            @RequestParam(required = false, defaultValue = "1234") String password) {
+        
+        try {
+            Account account = new Account(name, balance, type, password);
+            Account savedAccount = accountRepository.save(account);
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedAccount);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        }
     }
-
-    // ✅ GET ACCOUNT DETAILS
-    @GetMapping("/{accountNumber}")
-    public AccountResponse getAccount(@PathVariable String accountNumber) {
-        return bankService.getAccount(accountNumber);
-    }
-
+    
     // ✅ GET ALL ACCOUNTS
     @GetMapping
-    public List<AccountResponse> getAllAccounts() {
-        return bankService.getAllAccounts();
+    public ResponseEntity<List<Account>> getAllAccounts() {
+        return ResponseEntity.ok(accountRepository.findAll());
     }
-
+    
+    // ✅ GET ACCOUNT BY ID
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getAccount(@PathVariable String id) {
+        return accountRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(createErrorResponse("Account not found")));
+    }
+    
     // ✅ DEPOSIT
-    @PostMapping("/{accountNumber}/deposit")
-    public void deposit(
-            @PathVariable String accountNumber,
-            @RequestBody MoneyRequest request
-    ) {
-        bankService.deposit(accountNumber, request.getAmount());
+    @PostMapping("/{id}/deposit")
+    public ResponseEntity<?> deposit(
+            @PathVariable String id,
+            @RequestParam BigDecimal amount) {
+        
+        try {
+            Account account = accountRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Account not found"));
+            
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("Amount must be greater than zero");
+            }
+            
+            account.deposit(amount);
+            Account savedAccount = accountRepository.save(account);
+            
+            // Create transaction
+            Transaction transaction = new Transaction(account, "DEPOSIT", amount, account.getBalance());
+            transaction.setDescription("Deposit of ₹" + amount);
+            transactionRepository.save(transaction);
+            
+            return ResponseEntity.ok(savedAccount);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(createErrorResponse(e.getMessage()));
+        }
     }
-
+    
     // ✅ WITHDRAW
-    @PostMapping("/{accountNumber}/withdraw")
-    public void withdraw(
-            @PathVariable String accountNumber,
-            @RequestBody MoneyRequest request
-    ) {
-        bankService.withdraw(accountNumber, request.getAmount());
+    @PostMapping("/{id}/withdraw")
+    public ResponseEntity<?> withdraw(
+            @PathVariable String id,
+            @RequestParam BigDecimal amount) {
+        
+        try {
+            Account account = accountRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Account not found"));
+            
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("Amount must be greater than zero");
+            }
+            
+            if (account.getBalance().compareTo(amount) < 0) {
+                throw new RuntimeException("Insufficient balance");
+            }
+            
+            account.withdraw(amount);
+            Account savedAccount = accountRepository.save(account);
+            
+            // Create transaction
+            Transaction transaction = new Transaction(account, "WITHDRAW", amount, account.getBalance());
+            transaction.setDescription("Withdrawal of ₹" + amount);
+            transactionRepository.save(transaction);
+            
+            return ResponseEntity.ok(savedAccount);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(createErrorResponse(e.getMessage()));
+        }
     }
-
+    
     // ✅ TRANSFER
-    @PostMapping("/transfer")
-    public void transfer(@RequestBody TransferRequest request) {
-        bankService.transfer(
-                request.getFromAccount(),
-                request.getToAccount(),
-                request.getAmount(),
-                request.getOtp()
-        );
+    @PostMapping("/{fromId}/transfer")
+    public ResponseEntity<?> transfer(
+            @PathVariable String fromId,
+            @RequestParam String toAccount,
+            @RequestParam BigDecimal amount) {
+        
+        try {
+            Account fromAccount = accountRepository.findById(fromId)
+                    .orElseThrow(() -> new RuntimeException("Source account not found"));
+            
+            Account toAccountObj = accountRepository.findById(toAccount)
+                    .orElseThrow(() -> new RuntimeException("Destination account not found"));
+            
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("Amount must be greater than zero");
+            }
+            
+            if (fromAccount.getBalance().compareTo(amount) < 0) {
+                throw new RuntimeException("Insufficient balance");
+            }
+            
+            if (fromId.equals(toAccount)) {
+                throw new RuntimeException("Cannot transfer to the same account");
+            }
+            
+            // Perform transfer
+            fromAccount.withdraw(amount);
+            toAccountObj.deposit(amount);
+            
+            accountRepository.save(fromAccount);
+            accountRepository.save(toAccountObj);
+            
+            // Create transaction records
+            Transaction outTransaction = new Transaction(fromAccount, "TRANSFER_OUT", amount, fromAccount.getBalance());
+            outTransaction.setRelatedAccount(toAccount);
+            outTransaction.setDescription("Transfer to " + toAccount);
+            transactionRepository.save(outTransaction);
+            
+            Transaction inTransaction = new Transaction(toAccountObj, "TRANSFER_IN", amount, toAccountObj.getBalance());
+            inTransaction.setRelatedAccount(fromId);
+            inTransaction.setDescription("Transfer from " + fromId);
+            transactionRepository.save(inTransaction);
+            
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Transfer successful");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(createErrorResponse(e.getMessage()));
+        }
     }
-
-    // ✅ TRANSACTIONS
-    @GetMapping("/{accountNumber}/transactions")
-    public List<TransactionResponse> getTransactions(
-            @PathVariable String accountNumber
-    ) {
-        return bankService.getTransactions(accountNumber);
+    
+    // ✅ GET TRANSACTIONS
+    @GetMapping("/{id}/transactions")
+    public ResponseEntity<?> getTransactions(@PathVariable String id) {
+        try {
+            accountRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Account not found"));
+            
+            List<Transaction> transactions = transactionRepository
+                    .findByAccountAccountNumberOrderByTransactionTimeDesc(id);
+            
+            return ResponseEntity.ok(transactions);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(createErrorResponse(e.getMessage()));
+        }
     }
-
-    // ✅ BALANCE
-    @GetMapping("/{accountNumber}/balance")
-    public BigDecimal getBalance(@PathVariable String accountNumber) {
-        return bankService.getBalance(accountNumber);
-    }
-
-    // ✅ ANALYTICS
-    @GetMapping("/{accountNumber}/analytics")
-    public Map<String, Object> getAnalytics(
-            @PathVariable String accountNumber
-    ) {
-        return bankService.getAnalytics(accountNumber);
+    
+    // Helper method
+    private Map<String, String> createErrorResponse(String message) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", message);
+        return error;
     }
 }
