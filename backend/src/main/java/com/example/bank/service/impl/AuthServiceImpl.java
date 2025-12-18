@@ -1,5 +1,8 @@
 package com.example.bank.service.impl;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
 import com.example.bank.dto.LoginRequest;
 import com.example.bank.dto.LoginResponse;
 import com.example.bank.exception.InvalidInputException;
@@ -7,10 +10,21 @@ import com.example.bank.model.Account;
 import com.example.bank.repository.AccountRepository;
 import com.example.bank.security.JwtUtil;
 import com.example.bank.service.AuthService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@ToString
+@Data
+@Setter
+@EqualsAndHashCode
+@Getter
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {

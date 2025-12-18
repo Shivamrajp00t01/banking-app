@@ -1,5 +1,11 @@
 package com.example.bank.service.impl;
 
+import java.io.ByteArrayOutputStream;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
 import com.example.bank.exception.InvalidInputException;
 import com.example.bank.model.Account;
 import com.example.bank.model.Transaction;
@@ -12,12 +18,8 @@ import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.UnitValue;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayOutputStream;
-import java.time.LocalDateTime;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -36,8 +38,10 @@ public class PdfServiceImpl implements PdfService {
                 .orElseThrow(() -> new InvalidInputException("Account not found"));
 
         List<Transaction> txs =
-                transactionRepository.findByAccountAndDateRange(
-                        accountNumber, start, end);
+                transactionRepository.findByAccountAccountNumberAndTransactionTimeBetween(
+                        accountNumber, start, end
+                );
+
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
 

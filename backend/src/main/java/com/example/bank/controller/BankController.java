@@ -1,6 +1,7 @@
 package com.example.bank.controller;
 
 import com.example.bank.model.Account;
+import com.example.bank.model.Customer;
 import com.example.bank.model.Transaction;
 import com.example.bank.repository.AccountRepository;
 import com.example.bank.repository.TransactionRepository;
@@ -32,10 +33,15 @@ public class BankController {
             @RequestParam String name,
             @RequestParam BigDecimal balance,
             @RequestParam(required = false, defaultValue = "SAVINGS") String type,
-            @RequestParam(required = false, defaultValue = "1234") String password) {
+            @RequestParam(required = false, defaultValue = "1234") String password, String email) {
         
         try {
-            Account account = new Account(name, balance, type, password);
+        	Account account = new Account();
+        	account.setCustomer(new Customer(name, email));
+        	account.setBalance(balance);
+        	account.setType(Account.AccountType.valueOf(type));
+        	account.setPassword(password);
+
             Account savedAccount = accountRepository.save(account);
             return ResponseEntity.status(HttpStatus.CREATED).body(savedAccount);
         } catch (Exception e) {
@@ -53,12 +59,13 @@ public class BankController {
     
     // ✅ GET ACCOUNT BY ID
     @GetMapping("/{id}")
-    public ResponseEntity<?> getAccount(@PathVariable String id) {
+    public ResponseEntity<Object> getAccount(@PathVariable String id) {
         return accountRepository.findById(id)
-                .map(ResponseEntity::ok)
+                .<ResponseEntity<Object>>map(ResponseEntity::ok)
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(createErrorResponse("Account not found")));
     }
+
     
     // ✅ DEPOSIT
     @PostMapping("/{id}/deposit")
@@ -78,9 +85,10 @@ public class BankController {
             Account savedAccount = accountRepository.save(account);
             
             // Create transaction
-            Transaction transaction = new Transaction(account, "DEPOSIT", amount, account.getBalance());
+            Transaction transaction = Transaction.deposit(account, amount);
             transaction.setDescription("Deposit of ₹" + amount);
             transactionRepository.save(transaction);
+
             
             return ResponseEntity.ok(savedAccount);
         } catch (Exception e) {
@@ -111,9 +119,10 @@ public class BankController {
             Account savedAccount = accountRepository.save(account);
             
             // Create transaction
-            Transaction transaction = new Transaction(account, "WITHDRAW", amount, account.getBalance());
+            Transaction transaction = Transaction.withdraw(account, amount);
             transaction.setDescription("Withdrawal of ₹" + amount);
             transactionRepository.save(transaction);
+
             
             return ResponseEntity.ok(savedAccount);
         } catch (Exception e) {
@@ -156,12 +165,18 @@ public class BankController {
             accountRepository.save(toAccountObj);
             
             // Create transaction records
-            Transaction outTransaction = new Transaction(fromAccount, "TRANSFER_OUT", amount, fromAccount.getBalance());
+            Transaction outTransaction =
+            	    Transaction.transferOut(fromAccount, toAccount, amount);
+            	outTransaction.setDescription("Transfer to " + toAccount);
+            	transactionRepository.save(outTransaction);
             outTransaction.setRelatedAccount(toAccount);
             outTransaction.setDescription("Transfer to " + toAccount);
             transactionRepository.save(outTransaction);
             
-            Transaction inTransaction = new Transaction(toAccountObj, "TRANSFER_IN", amount, toAccountObj.getBalance());
+            Transaction inTransaction =
+            	    Transaction.transferIn(toAccountObj, fromId, amount);
+            	inTransaction.setDescription("Transfer from " + fromId);
+            	transactionRepository.save(inTransaction);
             inTransaction.setRelatedAccount(fromId);
             inTransaction.setDescription("Transfer from " + fromId);
             transactionRepository.save(inTransaction);
@@ -199,3 +214,4 @@ public class BankController {
         return error;
     }
 }
+// Removed to avoid conflict with AccountController

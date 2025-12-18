@@ -1,129 +1,188 @@
 package com.example.bank.model;
 
+import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "transactions")
 public class Transaction {
-    
-    @Id
+
+//    public static final String TransactionType = null;
+
+//	public static Object TransactionType;
+
+	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_number", nullable = false)
-    @JsonIgnore
     private Account account;
-    
-    @Column(nullable = false, length = 20)
-    private String type;
-    
-    @Column(nullable = false, precision = 19, scale = 2)
+
+    @Enumerated(EnumType.STRING)
+    private TransactionType type;
+
     private BigDecimal amount;
-    
-    @Column(name = "balance_after", precision = 19, scale = 2)
     private BigDecimal balanceAfter;
-    
-    @Column(length = 15)
-    private String relatedAccount;
-    
-    @Column(length = 500)
     private String description;
-    
-    @Column(name = "transaction_time")
     private LocalDateTime transactionTime;
-    
+
+	private String relatedAccount;
+
+    // ✅ ENUM
+    public enum TransactionType {
+        DEPOSIT,
+        WITHDRAW,
+        TRANSFER_IN,
+        TRANSFER_OUT
+    }
+
     @PrePersist
-    protected void onCreate() {
+    void onCreate() {
         transactionTime = LocalDateTime.now();
     }
+
+    // ✅ STATIC FACTORY METHODS (SERVICE EXPECTS THESE)
+//    public static Transaction deposit(Account acc, BigDecimal amt) {
+//        return build(acc, TransactionType.DEPOSIT, amt);
+//    }
+//
+//    public static Transaction withdraw(Account acc, BigDecimal amt) {
+//        return build(acc, TransactionType.WITHDRAW, amt);
+//    }
+//
+//    public static Transaction transferOut(Account acc, String to, BigDecimal amt) {
+//        return build(acc, TransactionType.TRANSFER_OUT, amt);
+//    }
+//
+//    public static Transaction transferIn(Account acc, String from, BigDecimal amt) {
+//        return build(acc, TransactionType.TRANSFER_IN, amt);
+//    }
+//
+//    private static Transaction build(Account acc, TransactionType type,
+//                                     BigDecimal amt) {
+//        Transaction tx = new Transaction();
+//        tx.account = acc;
+//        tx.type = type;
+//        tx.amount = amt;
+//        tx.balanceAfter = acc.getBalance();
+//        tx.description = type.name().replace("_", " ");
+//        return tx;
+//    }
     
-    public Transaction() {}
-    
-    public Transaction(Account account, String type, BigDecimal amount, BigDecimal balanceAfter) {
-        this.account = account;
-        this.type = type;
-        this.amount = amount;
-        this.balanceAfter = balanceAfter;
-        this.description = type.replace("_", " ");
+    public static Transaction deposit(Account account, BigDecimal amount) {
+        Transaction tx = new Transaction();
+        tx.account = account;
+        tx.type = TransactionType.DEPOSIT;
+        tx.amount = amount;
+        tx.balanceAfter = account.getBalance();
+        tx.description = "Deposit";
+        return tx;
+    }
+
+    public static Transaction withdraw(Account account, BigDecimal amount) {
+        Transaction tx = new Transaction();
+        tx.account = account;
+        tx.type = TransactionType.WITHDRAW;
+        tx.amount = amount;
+        tx.balanceAfter = account.getBalance();
+        tx.description = "Withdraw";
+        return tx;
+    }
+
+    public static Transaction transferOut(Account account, String to, BigDecimal amount) {
+        Transaction tx = new Transaction();
+        tx.account = account;
+        tx.type = TransactionType.TRANSFER_OUT;
+        tx.amount = amount;
+        tx.relatedAccount = to;
+        tx.balanceAfter = account.getBalance();
+        tx.description = "Transfer Out";
+        return tx;
+    }
+
+    public static Transaction transferIn(Account account, String from, BigDecimal amount) {
+        Transaction tx = new Transaction();
+        tx.account = account;
+        tx.type = TransactionType.TRANSFER_IN;
+        tx.amount = amount;
+        tx.relatedAccount = from;
+        tx.balanceAfter = account.getBalance();
+        tx.description = "Transfer In";
+        return tx;
     }
     
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-    
-    public void setId(Long id) {
-        this.id = id;
-    }
-    
-    public Account getAccount() {
-        return account;
-    }
-    
-    public void setAccount(Account account) {
-        this.account = account;
-    }
-    
-    public String getType() {
-        return type;
-    }
-    
-    public void setType(String type) {
-        this.type = type;
-    }
-    
-    public BigDecimal getAmount() {
-        return amount;
-    }
-    
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-    
-    public BigDecimal getBalanceAfter() {
-        return balanceAfter;
-    }
-    
-    public void setBalanceAfter(BigDecimal balanceAfter) {
-        this.balanceAfter = balanceAfter;
-    }
-    
-    public String getRelatedAccount() {
-        return relatedAccount;
-    }
-    
-    public void setRelatedAccount(String relatedAccount) {
-        this.relatedAccount = relatedAccount;
-    }
-    
-    public String getDescription() {
-        return description;
-    }
-    
-    public void setDescription(String description) {
-        this.description = description;
-    }
-    
-    public LocalDateTime getTransactionTime() {
-        return transactionTime;
-    }
-    
-    public void setTransactionTime(LocalDateTime transactionTime) {
-        this.transactionTime = transactionTime;
-    }
+//    public Transaction(Account account, TransactionType type,
+//            BigDecimal amount, BigDecimal balanceAfter) {
+//    		this.account = account;
+//    		this.type = type;
+//    		this.amount = amount;
+//    		this.balanceAfter = balanceAfter;
+//    		this.transactionTime = LocalDateTime.now();
+//    }
+//
+//
+//
+//	public Transaction(Account account2, String string, BigDecimal amount2, BigDecimal balance) {
+//		// TODO Auto-generated constructor stub
+//	}
+
+	public BigDecimal getAmount() {
+		return this.amount;
+	}
+
+	public BigDecimal getBalanceAfter() {
+	    return balanceAfter;
+	}
+
+	public TransactionType getType() {
+	    return type;
+	}
+
+	public Long getId() {
+	    return this.id;
+	}
+
+	public String getRelatedAccount() {
+	    return this.relatedAccount;
+	}
+
+	public String getDescription() {
+	    return this.description;
+	}
+
+	public LocalDateTime getTransactionTime() {
+	    return this.transactionTime;
+	}
+
+	public void setDescription(String description) {
+	    this.description = description;
+	}
+
+	public void setRelatedAccount(String relatedAccount) {
+	    this.relatedAccount = relatedAccount;
+	}
+
+	public void setAccount(Account account) {
+	    this.account = account;
+	}
+
+	public void setType(TransactionType type) {
+	    this.type = type;
+	}
+
+	public void setAmount(BigDecimal amount) {
+	    this.amount = amount;
+	}
+
+	public void setBalanceAfter(BigDecimal balanceAfter) {
+	    this.balanceAfter = balanceAfter;
+	}
+
+
+
+
+
+    // getters & setters
 }

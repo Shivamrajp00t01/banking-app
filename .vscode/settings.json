@@ -1,0 +1,18 @@
+{
+    "cSpell.words": [
+        "Apana"
+    ],
+    "maven.view": "flat",
+    "java.import.gradle.annotationProcessing.enabled": true,
+    "intelephense.compatibility.preferPsalmPhpstanPrefixedAnnotations": true,
+    "python.analysis.generateWithTypeAnnotation": true,
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.compile.nullAnalysis.nonnull": [
+
+
+        "javax.annotation.Nonnull",
+        "org.eclipse.jdt.annotation.NonNull",
+        "org.springframework.lang.NonNull",
+        "org.jspecify.annotations.NonNull"
+    ]
+}

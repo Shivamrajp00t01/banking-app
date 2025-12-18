@@ -1,6 +1,20 @@
 package com.example.bank.service.impl;
 
-import com.example.bank.dto.*;
+
+import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+import java.util.stream.Collectors;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.example.bank.dto.AccountResponse;
+import com.example.bank.dto.AnalyticsResponse;
+import com.example.bank.dto.CreateAccountRequest;
+import com.example.bank.dto.TransactionResponse;
 import com.example.bank.exception.AccountNotFoundException;
 import com.example.bank.exception.InsufficientFundsException;
 import com.example.bank.exception.InvalidInputException;
@@ -11,16 +25,8 @@ import com.example.bank.repository.AccountRepository;
 import com.example.bank.repository.TransactionRepository;
 import com.example.bank.service.BankService;
 import com.example.bank.service.OtpService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -217,7 +223,7 @@ public class BankServiceImpl implements BankService {
     //     );
     // }
     @Override
-public AnalyticsResponse getAnalytics(String accountNumber) {
+    public AnalyticsResponse getAnalytics(String accountNumber) {
 
     Account account = findAccountByNumber(accountNumber);
 
@@ -255,6 +261,12 @@ public AnalyticsResponse getAnalytics(String accountNumber) {
             Collections.emptyList()
     );
 }
+
+	@Override
+	public List<AccountResponse> searchByCustomerName(String name) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
     
 
