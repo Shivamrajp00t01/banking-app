@@ -166,4 +166,7 @@ public class Account {
     public enum AccountType {
         SAVINGS, CURRENT
     }
+    public String getAccountNumber() {
+        return this.accountNumber;
+    }
 }

@@ -12,11 +12,13 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AnalyticsResponse {
+    private String accountNumber;
     private BigDecimal totalDeposits;
     private BigDecimal totalWithdrawals;
     private BigDecimal totalTransfersOut;
     private BigDecimal totalTransfersIn;
     private BigDecimal currentBalance;
+    private int transactionCount;
     private Map<String, BigDecimal> categorySpending;
     private List<DailyBalance> dailyBalances;
     

@@ -2,7 +2,6 @@ package com.example.bank.service;
 
 import com.example.bank.dto.*;
 import com.example.bank.model.Account;
-import com.example.bank.model.Transaction;
 
 import java.math.BigDecimal;
 import java.util.List;

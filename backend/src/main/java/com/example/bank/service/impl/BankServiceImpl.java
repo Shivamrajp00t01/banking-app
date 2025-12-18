@@ -187,36 +187,73 @@ public class BankServiceImpl implements BankService {
                 tx.getTransactionTime()
         );
     }
+    // @Override
+    // public AnalyticsResponse getAnalytics(String accountNumber) {
+
+    //     Account account = findAccountByNumber(accountNumber);
+
+    //     List<Transaction> transactions =
+    //         transactionRepository.findByAccountAccountNumberOrderByTransactionTimeDesc(accountNumber);
+
+    //     BigDecimal totalDeposits = BigDecimal.ZERO;
+    //     BigDecimal totalWithdrawals = BigDecimal.ZERO;
+
+    //     for (Transaction tx : transactions) {
+    //         if (tx.getType() == Transaction.TransactionType.DEPOSIT
+    //                 || tx.getType() == Transaction.TransactionType.TRANSFER_IN) {
+    //             totalDeposits = totalDeposits.add(tx.getAmount());
+    //         }
+    //         if (tx.getType() == Transaction.TransactionType.WITHDRAW
+    //             || tx.getType() == Transaction.TransactionType.TRANSFER_OUT) {
+    //             totalWithdrawals = totalWithdrawals.add(tx.getAmount());
+    //         }
+    //     }
+    //     return new AnalyticsResponse(
+    //             account.getAccountNumber(),
+    //             account.getBalance(),
+    //             totalDeposits,
+    //             totalWithdrawals,
+    //             transactions.size()
+    //     );
+    // }
     @Override
-public Map<String, Object> getAnalytics(String accountNumber) {
+public AnalyticsResponse getAnalytics(String accountNumber) {
 
     Account account = findAccountByNumber(accountNumber);
 
     List<Transaction> transactions =
-            transactionRepository.findByAccountAccountNumberOrderByTransactionTimeDesc(accountNumber);
+        transactionRepository.findByAccountAccountNumberOrderByTransactionTimeDesc(accountNumber);
 
     BigDecimal totalDeposits = BigDecimal.ZERO;
     BigDecimal totalWithdrawals = BigDecimal.ZERO;
+    BigDecimal totalTransfersIn = BigDecimal.ZERO;
+    BigDecimal totalTransfersOut = BigDecimal.ZERO;
 
     for (Transaction tx : transactions) {
-        if (tx.getType() == Transaction.TransactionType.DEPOSIT
-                || tx.getType() == Transaction.TransactionType.TRANSFER_IN) {
+        if (tx.getType() == Transaction.TransactionType.DEPOSIT) {
             totalDeposits = totalDeposits.add(tx.getAmount());
-        }
-        if (tx.getType() == Transaction.TransactionType.WITHDRAW
-                || tx.getType() == Transaction.TransactionType.TRANSFER_OUT) {
+        } else if (tx.getType() == Transaction.TransactionType.WITHDRAW) {
             totalWithdrawals = totalWithdrawals.add(tx.getAmount());
+        } else if (tx.getType() == Transaction.TransactionType.TRANSFER_IN) {
+            totalDeposits = totalDeposits.add(tx.getAmount());
+            totalTransfersIn = totalTransfersIn.add(tx.getAmount());
+        } else if (tx.getType() == Transaction.TransactionType.TRANSFER_OUT) {
+            totalWithdrawals = totalWithdrawals.add(tx.getAmount());
+            totalTransfersOut = totalTransfersOut.add(tx.getAmount());
         }
     }
 
-    Map<String, Object> analytics = new HashMap<>();
-    analytics.put("accountNumber", accountNumber);
-    analytics.put("balance", account.getBalance());
-    analytics.put("totalDeposits", totalDeposits);
-    analytics.put("totalWithdrawals", totalWithdrawals);
-    analytics.put("transactionCount", transactions.size());
-
-    return analytics;
+    return new AnalyticsResponse(
+            account.getAccountNumber(),
+            totalDeposits,
+            totalWithdrawals,
+            totalTransfersOut,
+            totalTransfersIn,
+            account.getBalance(),
+            transactions.size(),
+            Collections.emptyMap(),
+            Collections.emptyList()
+    );
 }
 
     
