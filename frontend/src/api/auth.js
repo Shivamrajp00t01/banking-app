@@ -20,3 +20,7 @@ export const login = async (accountNumber, password) => {
   
   return account;
 };
+
+// export const logout = () => {
+//   removeAuthToken();
+// };
