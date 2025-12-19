@@ -1,26 +1,33 @@
 import { setAuthToken, setUserInfo } from '../utils/auth';
 
-const BASE_URL = "http://localhost:8080/api/accounts";
+const AUTH_URL = "http://localhost:8080/api/auth/login";
 
 export const login = async (accountNumber, password) => {
-  // For demo: just check if account exists
-  const response = await fetch(`${BASE_URL}/${accountNumber}`);
-  if (!response.ok) {
-    throw new Error('Invalid account number or password');
-  }
-  
-  const account = await response.json();
-  
-  // Store auth info
-  setAuthToken('demo-token-' + accountNumber);
-  setUserInfo({
-    accountNumber: account.accountNumber,
-    name: account.customer ? account.customer.name : account.name
+  const response = await fetch(AUTH_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      accountNumber,
+      password
+    })
   });
-  
-  return account;
-};
 
-// export const logout = () => {
-//   removeAuthToken();
-// };
+  if (!response.ok) {
+    throw new Error("Invalid account number or password");
+  }
+
+  const data = await response.json();
+
+  // ✅ REAL JWT TOKEN from backend
+  setAuthToken(data.token);
+
+  setUserInfo({
+    accountNumber: data.accountNumber,
+    name: data.customerName,
+    accountType: data.accountType
+  });
+
+  return data;
+};

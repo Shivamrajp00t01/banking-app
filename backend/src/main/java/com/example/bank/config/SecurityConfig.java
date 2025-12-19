@@ -31,11 +31,13 @@ public class SecurityConfig {
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
-                        new AntPathRequestMatcher("/api/auth/**"),
-                        new AntPathRequestMatcher("/h2-console/**")
+                    new AntPathRequestMatcher("/api/auth/**"),
+                    new AntPathRequestMatcher("/api/accounts", "POST"), // ✅ SIGNUP
+                    new AntPathRequestMatcher("/h2-console/**")
                 ).permitAll()
-                .anyRequest().authenticated()
+            .anyRequest().authenticated()
             )
+
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
             .headers(headers -> headers.frameOptions(frame -> frame.disable()));
 

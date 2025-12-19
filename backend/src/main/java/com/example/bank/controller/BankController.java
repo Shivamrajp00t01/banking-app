@@ -7,6 +7,8 @@ import com.example.bank.repository.AccountRepository;
 import com.example.bank.repository.TransactionRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -21,10 +23,14 @@ public class BankController {
     
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
+    private final PasswordEncoder passwordEncoder;
     
-    public BankController(AccountRepository accountRepository, TransactionRepository transactionRepository) {
+    public BankController(AccountRepository accountRepository,
+                          TransactionRepository transactionRepository,
+                          PasswordEncoder passwordEncoder) {  // ✅ YAHAN
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
+        this.passwordEncoder = passwordEncoder;       // ✅ YAHAN
     }
     
     // ✅ CREATE ACCOUNT
@@ -33,14 +39,18 @@ public class BankController {
             @RequestParam String name,
             @RequestParam BigDecimal balance,
             @RequestParam(required = false, defaultValue = "SAVINGS") String type,
-            @RequestParam(required = false, defaultValue = "1234") String password, String email) {
+            @RequestParam(required = false, defaultValue = "1234") String password,
+@RequestParam(required = false) String email
+) {
         
         try {
         	Account account = new Account();
         	account.setCustomer(new Customer(name, email));
         	account.setBalance(balance);
         	account.setType(Account.AccountType.valueOf(type));
-        	account.setPassword(password);
+        	account.setPassword(passwordEncoder.encode(password));
+            
+
 
             Account savedAccount = accountRepository.save(account);
             return ResponseEntity.status(HttpStatus.CREATED).body(savedAccount);
@@ -166,20 +176,22 @@ public class BankController {
             
             // Create transaction records
             Transaction outTransaction =
-            	    Transaction.transferOut(fromAccount, toAccount, amount);
-            	outTransaction.setDescription("Transfer to " + toAccount);
-            	transactionRepository.save(outTransaction);
-            outTransaction.setRelatedAccount(toAccount);
-            outTransaction.setDescription("Transfer to " + toAccount);
-            transactionRepository.save(outTransaction);
+        Transaction.transferOut(fromAccount, toAccount, amount);
+
+outTransaction.setRelatedAccount(toAccount);
+outTransaction.setDescription("Transfer to " + toAccount);
+
+transactionRepository.save(outTransaction);   // ✅ ONLY ONE SAVE
+
             
             Transaction inTransaction =
-            	    Transaction.transferIn(toAccountObj, fromId, amount);
-            	inTransaction.setDescription("Transfer from " + fromId);
-            	transactionRepository.save(inTransaction);
-            inTransaction.setRelatedAccount(fromId);
-            inTransaction.setDescription("Transfer from " + fromId);
-            transactionRepository.save(inTransaction);
+        Transaction.transferIn(toAccountObj, fromId, amount);
+
+inTransaction.setRelatedAccount(fromId);
+inTransaction.setDescription("Transfer from " + fromId);
+
+transactionRepository.save(inTransaction);
+
             
             Map<String, String> response = new HashMap<>();
             response.put("message", "Transfer successful");

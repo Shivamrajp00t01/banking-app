@@ -14,5 +14,8 @@
         "org.eclipse.jdt.annotation.NonNull",
         "org.springframework.lang.NonNull",
         "org.jspecify.annotations.NonNull"
-    ]
+    // ],
+    // "java.project.referencedLibraries": [
+    //     "lib/**/*.jar"
+    // ]
 }

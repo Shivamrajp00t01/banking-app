@@ -1,20 +1,39 @@
 package com.example.bank.controller;
 
-import com.example.bank.dto.*;
-import com.example.bank.service.BankService;
-import com.example.bank.service.OtpService;
-import jakarta.validation.Valid;
-import com.example.bank.service.PdfService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.*;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.bank.dto.AccountResponse;
+import com.example.bank.dto.AnalyticsResponse;
+import com.example.bank.dto.CreateAccountRequest;
+import com.example.bank.dto.MoneyRequest;
+import com.example.bank.dto.TransactionResponse;
+import com.example.bank.dto.TransferRequest;
+import com.example.bank.service.BankService;
+import com.example.bank.service.OtpService;
+import com.example.bank.service.PdfService;
+
+import jakarta.validation.Valid;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+
+@Setter
+@Getter
 @RestController
 @RequestMapping("/api/v2/accounts")
 @RequiredArgsConstructor
@@ -127,8 +146,4 @@ public class AccountController {
             throw new SecurityException("Access denied");
         }
     }
-
-	public OtpService getOtpService() {
-		return otpService;
-	}
 }
