@@ -5,10 +5,11 @@ import com.example.bank.model.Customer;
 import com.example.bank.model.Transaction;
 import com.example.bank.repository.AccountRepository;
 import com.example.bank.repository.TransactionRepository;
+
+import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -18,212 +19,208 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/accounts")
-@CrossOrigin(origins = "*", allowedHeaders = "*")
+@CrossOrigin(origins = "*")
 public class BankController {
-    
+
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
     private final PasswordEncoder passwordEncoder;
-    
+
     public BankController(AccountRepository accountRepository,
                           TransactionRepository transactionRepository,
-                          PasswordEncoder passwordEncoder) {  // ✅ YAHAN
+                          PasswordEncoder passwordEncoder) {
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
-        this.passwordEncoder = passwordEncoder;       // ✅ YAHAN
+        this.passwordEncoder = passwordEncoder;
     }
-    
+
     // ✅ CREATE ACCOUNT
     @PostMapping
     public ResponseEntity<?> createAccount(
             @RequestParam String name,
             @RequestParam BigDecimal balance,
-            @RequestParam(required = false, defaultValue = "SAVINGS") String type,
-            @RequestParam(required = false, defaultValue = "1234") String password,
-@RequestParam(required = false) String email
-) {
-        
+            @RequestParam(defaultValue = "SAVINGS") String type,
+            @RequestParam(defaultValue = "1234") String password,
+            @RequestParam(required = false) String email
+    ) {
         try {
-        	Account account = new Account();
-        	account.setCustomer(new Customer(name, email));
-        	account.setBalance(balance);
-        	account.setType(Account.AccountType.valueOf(type));
-        	account.setPassword(passwordEncoder.encode(password));
-            
+            Account account = new Account();
+            account.setCustomer(new Customer(name, email));
+            account.setBalance(balance);
 
+            try {
+                account.setType(Account.AccountType.valueOf(type.toUpperCase()));
+            } catch (IllegalArgumentException ex) {
+                return ResponseEntity.badRequest()
+                        .body(error("Invalid account type"));
+            }
 
-            Account savedAccount = accountRepository.save(account);
-            return ResponseEntity.status(HttpStatus.CREATED).body(savedAccount);
+            account.setPassword(passwordEncoder.encode(password));
+            Account saved = accountRepository.save(account);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+
         } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(error(e.getMessage()));
         }
     }
-    
+
     // ✅ GET ALL ACCOUNTS
     @GetMapping
     public ResponseEntity<List<Account>> getAllAccounts() {
         return ResponseEntity.ok(accountRepository.findAll());
     }
-    
+
     // ✅ GET ACCOUNT BY ID
     @GetMapping("/{id}")
-    public ResponseEntity<Object> getAccount(@PathVariable String id) {
-        return accountRepository.findById(id)
-                .<ResponseEntity<Object>>map(ResponseEntity::ok)
-                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(createErrorResponse("Account not found")));
+    public ResponseEntity<?> getAccount(@PathVariable String id) {
+
+        Account account = accountRepository.findById(id).orElse(null);
+
+        if (account == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(error("Account not found"));
+        }
+
+        return ResponseEntity.ok(account);
     }
 
-    
+
+
     // ✅ DEPOSIT
     @PostMapping("/{id}/deposit")
+    @Transactional
     public ResponseEntity<?> deposit(
             @PathVariable String id,
-            @RequestParam BigDecimal amount) {
-        
+            @RequestParam BigDecimal amount
+    ) {
         try {
             Account account = accountRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Account not found"));
-            
-            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new RuntimeException("Amount must be greater than zero");
-            }
-            
-            account.deposit(amount);
-            Account savedAccount = accountRepository.save(account);
-            
-            // Create transaction
-            Transaction transaction = Transaction.deposit(account, amount);
-            transaction.setDescription("Deposit of ₹" + amount);
-            transactionRepository.save(transaction);
 
-            
-            return ResponseEntity.ok(savedAccount);
+            if (amount.compareTo(BigDecimal.ZERO) <= 0)
+                return ResponseEntity.badRequest()
+                        .body(error("Amount must be greater than zero"));
+
+            account.deposit(amount);
+            accountRepository.save(account);
+
+            Transaction txn = Transaction.deposit(account, amount);
+            txn.setDescription("Deposit of ₹" + amount);
+            transactionRepository.save(txn);
+
+            return ResponseEntity.ok(account);
+
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
         }
     }
-    
+
     // ✅ WITHDRAW
     @PostMapping("/{id}/withdraw")
+    @Transactional
     public ResponseEntity<?> withdraw(
             @PathVariable String id,
-            @RequestParam BigDecimal amount) {
-        
+            @RequestParam BigDecimal amount
+    ) {
         try {
             Account account = accountRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Account not found"));
-            
-            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new RuntimeException("Amount must be greater than zero");
-            }
-            
-            if (account.getBalance().compareTo(amount) < 0) {
-                throw new RuntimeException("Insufficient balance");
-            }
-            
-            account.withdraw(amount);
-            Account savedAccount = accountRepository.save(account);
-            
-            // Create transaction
-            Transaction transaction = Transaction.withdraw(account, amount);
-            transaction.setDescription("Withdrawal of ₹" + amount);
-            transactionRepository.save(transaction);
 
-            
-            return ResponseEntity.ok(savedAccount);
+            if (amount.compareTo(BigDecimal.ZERO) <= 0)
+                return ResponseEntity.badRequest()
+                        .body(error("Amount must be greater than zero"));
+
+            if (account.getBalance().compareTo(amount) < 0)
+                return ResponseEntity.badRequest()
+                        .body(error("Insufficient balance"));
+
+            account.withdraw(amount);
+            accountRepository.save(account);
+
+            Transaction txn = Transaction.withdraw(account, amount);
+            txn.setDescription("Withdrawal of ₹" + amount);
+            transactionRepository.save(txn);
+
+            return ResponseEntity.ok(account);
+
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
         }
     }
-    
+
     // ✅ TRANSFER
     @PostMapping("/{fromId}/transfer")
+    @Transactional
     public ResponseEntity<?> transfer(
             @PathVariable String fromId,
             @RequestParam String toAccount,
-            @RequestParam BigDecimal amount) {
-        
+            @RequestParam BigDecimal amount
+    ) {
         try {
-            Account fromAccount = accountRepository.findById(fromId)
+            if (fromId.equals(toAccount))
+                return ResponseEntity.badRequest()
+                        .body(error("Cannot transfer to same account"));
+
+            Account from = accountRepository.findById(fromId)
                     .orElseThrow(() -> new RuntimeException("Source account not found"));
-            
-            Account toAccountObj = accountRepository.findById(toAccount)
+
+            Account to = accountRepository.findById(toAccount)
                     .orElseThrow(() -> new RuntimeException("Destination account not found"));
-            
-            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new RuntimeException("Amount must be greater than zero");
-            }
-            
-            if (fromAccount.getBalance().compareTo(amount) < 0) {
-                throw new RuntimeException("Insufficient balance");
-            }
-            
-            if (fromId.equals(toAccount)) {
-                throw new RuntimeException("Cannot transfer to the same account");
-            }
-            
-            // Perform transfer
-            fromAccount.withdraw(amount);
-            toAccountObj.deposit(amount);
-            
-            accountRepository.save(fromAccount);
-            accountRepository.save(toAccountObj);
-            
-            // Create transaction records
-            Transaction outTransaction =
-        Transaction.transferOut(fromAccount, toAccount, amount);
 
-outTransaction.setRelatedAccount(toAccount);
-outTransaction.setDescription("Transfer to " + toAccount);
+            if (amount.compareTo(BigDecimal.ZERO) <= 0)
+                return ResponseEntity.badRequest()
+                        .body(error("Amount must be greater than zero"));
 
-transactionRepository.save(outTransaction);   // ✅ ONLY ONE SAVE
+            if (from.getBalance().compareTo(amount) < 0)
+                return ResponseEntity.badRequest()
+                        .body(error("Insufficient balance"));
 
-            
-            Transaction inTransaction =
-        Transaction.transferIn(toAccountObj, fromId, amount);
+            from.withdraw(amount);
+            to.deposit(amount);
 
-inTransaction.setRelatedAccount(fromId);
-inTransaction.setDescription("Transfer from " + fromId);
+            accountRepository.save(from);
+            accountRepository.save(to);
 
-transactionRepository.save(inTransaction);
+            transactionRepository.save(
+                    Transaction.transferOut(from, toAccount, amount)
+            );
+            transactionRepository.save(
+                    Transaction.transferIn(to, fromId, amount)
+            );
 
-            
-            Map<String, String> response = new HashMap<>();
+            Map<String, Object> response = new HashMap<>();
             response.put("message", "Transfer successful");
+            response.put("fromBalance", from.getBalance());
+            response.put("toBalance", to.getBalance());
+
             return ResponseEntity.ok(response);
+
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest().body(error(e.getMessage()));
         }
     }
-    
-    // ✅ GET TRANSACTIONS
+
+    // ✅ GET TRANSACTIONS (FIXED TO MATCH REPO)
     @GetMapping("/{id}/transactions")
     public ResponseEntity<?> getTransactions(@PathVariable String id) {
         try {
             accountRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Account not found"));
-            
-            List<Transaction> transactions = transactionRepository
-                    .findByAccountAccountNumberOrderByTransactionTimeDesc(id);
-            
+
+            List<Transaction> transactions =
+                    transactionRepository.findTransactionsByAccountNumber(id);
+
             return ResponseEntity.ok(transactions);
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(createErrorResponse(e.getMessage()));
+                    .body(error(e.getMessage()));
         }
     }
-    
-    // Helper method
-    private Map<String, String> createErrorResponse(String message) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", message);
-        return error;
+
+    private Map<String, String> error(String msg) {
+        return Map.of("error", msg);
     }
 }
-// Removed to avoid conflict with AccountController

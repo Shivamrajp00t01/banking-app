@@ -38,10 +38,9 @@ public class PdfServiceImpl implements PdfService {
                 .orElseThrow(() -> new InvalidInputException("Account not found"));
 
         List<Transaction> txs =
-                transactionRepository.findByAccountAccountNumberAndTransactionTimeBetween(
+                transactionRepository.findTransactionsByAccountNumberBetweenDates(
                         accountNumber, start, end
                 );
-
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
 

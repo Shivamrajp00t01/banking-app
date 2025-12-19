@@ -1,6 +1,8 @@
 package com.example.bank.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -8,29 +10,38 @@ import java.time.LocalDateTime;
 @Table(name = "transactions")
 public class Transaction {
 
-//    public static final String TransactionType = null;
-
-//	public static Object TransactionType;
-
-	@Id
+    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 🔒 Prevent infinite JSON loop
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_number", nullable = false)
+    @JsonBackReference
     private Account account;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private TransactionType type;
 
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
+
+    @Column(name = "balance_after", precision = 19, scale = 2)
     private BigDecimal balanceAfter;
+
+    @Column(length = 255)
     private String description;
+
+    @Column(name = "transaction_time", updatable = false)
     private LocalDateTime transactionTime;
 
-	private String relatedAccount;
+    @Column(name = "related_account", length = 20)
+    private String relatedAccount;
 
-    // ✅ ENUM
+    // ✅ REQUIRED no-args constructor
+    protected Transaction() {}
+
     public enum TransactionType {
         DEPOSIT,
         WITHDRAW,
@@ -39,150 +50,55 @@ public class Transaction {
     }
 
     @PrePersist
-    void onCreate() {
-        transactionTime = LocalDateTime.now();
+    protected void onCreate() {
+        this.transactionTime = LocalDateTime.now();
     }
 
-    // ✅ STATIC FACTORY METHODS (SERVICE EXPECTS THESE)
-//    public static Transaction deposit(Account acc, BigDecimal amt) {
-//        return build(acc, TransactionType.DEPOSIT, amt);
-//    }
-//
-//    public static Transaction withdraw(Account acc, BigDecimal amt) {
-//        return build(acc, TransactionType.WITHDRAW, amt);
-//    }
-//
-//    public static Transaction transferOut(Account acc, String to, BigDecimal amt) {
-//        return build(acc, TransactionType.TRANSFER_OUT, amt);
-//    }
-//
-//    public static Transaction transferIn(Account acc, String from, BigDecimal amt) {
-//        return build(acc, TransactionType.TRANSFER_IN, amt);
-//    }
-//
-//    private static Transaction build(Account acc, TransactionType type,
-//                                     BigDecimal amt) {
-//        Transaction tx = new Transaction();
-//        tx.account = acc;
-//        tx.type = type;
-//        tx.amount = amt;
-//        tx.balanceAfter = acc.getBalance();
-//        tx.description = type.name().replace("_", " ");
-//        return tx;
-//    }
-    
+    // ✅ FACTORY METHODS (CONTROLLER EXPECTS THESE)
+
     public static Transaction deposit(Account account, BigDecimal amount) {
-        Transaction tx = new Transaction();
-        tx.account = account;
-        tx.type = TransactionType.DEPOSIT;
-        tx.amount = amount;
-        tx.balanceAfter = account.getBalance();
-        tx.description = "Deposit";
-        return tx;
+        return build(account, TransactionType.DEPOSIT, amount, null);
     }
 
     public static Transaction withdraw(Account account, BigDecimal amount) {
-        Transaction tx = new Transaction();
-        tx.account = account;
-        tx.type = TransactionType.WITHDRAW;
-        tx.amount = amount;
-        tx.balanceAfter = account.getBalance();
-        tx.description = "Withdraw";
-        return tx;
+        return build(account, TransactionType.WITHDRAW, amount, null);
     }
 
     public static Transaction transferOut(Account account, String to, BigDecimal amount) {
-        Transaction tx = new Transaction();
-        tx.account = account;
-        tx.type = TransactionType.TRANSFER_OUT;
-        tx.amount = amount;
-        tx.relatedAccount = to;
-        tx.balanceAfter = account.getBalance();
-        tx.description = "Transfer Out";
-        return tx;
+        return build(account, TransactionType.TRANSFER_OUT, amount, to);
     }
 
     public static Transaction transferIn(Account account, String from, BigDecimal amount) {
+        return build(account, TransactionType.TRANSFER_IN, amount, from);
+    }
+
+    private static Transaction build(
+            Account account,
+            TransactionType type,
+            BigDecimal amount,
+            String relatedAccount
+    ) {
         Transaction tx = new Transaction();
         tx.account = account;
-        tx.type = TransactionType.TRANSFER_IN;
+        tx.type = type;
         tx.amount = amount;
-        tx.relatedAccount = from;
+        tx.relatedAccount = relatedAccount;
         tx.balanceAfter = account.getBalance();
-        tx.description = "Transfer In";
+        tx.description = type.name().replace("_", " ");
         return tx;
     }
-    
-//    public Transaction(Account account, TransactionType type,
-//            BigDecimal amount, BigDecimal balanceAfter) {
-//    		this.account = account;
-//    		this.type = type;
-//    		this.amount = amount;
-//    		this.balanceAfter = balanceAfter;
-//    		this.transactionTime = LocalDateTime.now();
-//    }
-//
-//
-//
-//	public Transaction(Account account2, String string, BigDecimal amount2, BigDecimal balance) {
-//		// TODO Auto-generated constructor stub
-//	}
 
-	public BigDecimal getAmount() {
-		return this.amount;
-	}
+    // ✅ GETTERS ONLY (IMMUTABLE DESIGN)
 
-	public BigDecimal getBalanceAfter() {
-	    return balanceAfter;
-	}
+    public Long getId() { return id; }
+    public TransactionType getType() { return type; }
+    public BigDecimal getAmount() { return amount; }
+    public BigDecimal getBalanceAfter() { return balanceAfter; }
+    public String getRelatedAccount() { return relatedAccount; }
+    public String getDescription() { return description; }
+    public LocalDateTime getTransactionTime() { return transactionTime; }
 
-	public TransactionType getType() {
-	    return type;
-	}
-
-	public Long getId() {
-	    return this.id;
-	}
-
-	public String getRelatedAccount() {
-	    return this.relatedAccount;
-	}
-
-	public String getDescription() {
-	    return this.description;
-	}
-
-	public LocalDateTime getTransactionTime() {
-	    return this.transactionTime;
-	}
-
-	public void setDescription(String description) {
-	    this.description = description;
-	}
-
-	public void setRelatedAccount(String relatedAccount) {
-	    this.relatedAccount = relatedAccount;
-	}
-
-	public void setAccount(Account account) {
-	    this.account = account;
-	}
-
-	public void setType(TransactionType type) {
-	    this.type = type;
-	}
-
-	public void setAmount(BigDecimal amount) {
-	    this.amount = amount;
-	}
-
-	public void setBalanceAfter(BigDecimal balanceAfter) {
-	    this.balanceAfter = balanceAfter;
-	}
-
-
-
-
-
-    // getters & setters
+    public void setDescription(String description) {
+        this.description = description;
+    }
 }

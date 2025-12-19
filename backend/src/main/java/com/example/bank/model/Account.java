@@ -1,6 +1,8 @@
 package com.example.bank.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -12,18 +14,15 @@ import java.util.List;
 public class Account {
 
     private static final String BANK_CODE = "APB";
-    private static final SecureRandom random = new SecureRandom();
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     @Id
+    @Column(name = "account_number", length = 15)
     private String accountNumber;
 
-    // ✅ ENUM instead of String
-//    @Enumerated(EnumType.STRING)
-//    @Column(nullable = false)
-//    private AccountType type = AccountType.SAVINGS;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private AccountType type;
+    private AccountType type = AccountType.SAVINGS;
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal balance = BigDecimal.ZERO;
@@ -35,13 +34,19 @@ public class Account {
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
+    // 🔒 Prevent infinite JSON loop
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private List<Transaction> transactions = new ArrayList<>();
 
+    @Column(updatable = false)
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 
-    // ✅ REQUIRED ENUM
+    private LocalDateTime updatedAt;
+// ❌ protected Account() {}
+// ✅ FIX
+    public  Account() {}
+
     public enum AccountType {
         SAVINGS,
         CURRENT
@@ -49,27 +54,28 @@ public class Account {
 
     @PrePersist
     protected void onCreate() {
-        if (accountNumber == null) {
-            accountNumber = generateAccountNumber();
+        if (this.accountNumber == null) {
+            this.accountNumber = generateAccountNumber();
         }
-        createdAt = LocalDateTime.now();
-        setUpdatedAt(LocalDateTime.now());
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        setUpdatedAt(LocalDateTime.now());
+        this.updatedAt = LocalDateTime.now();
     }
 
     private String generateAccountNumber() {
         StringBuilder sb = new StringBuilder(BANK_CODE);
         for (int i = 0; i < 12; i++) {
-            sb.append(random.nextInt(10));
+            sb.append(RANDOM.nextInt(10));
         }
         return sb.toString();
     }
 
-    // ✅ Business methods
+    // ✅ BUSINESS METHODS
+
     public void deposit(BigDecimal amount) {
         this.balance = this.balance.add(amount);
     }
@@ -78,58 +84,19 @@ public class Account {
         this.balance = this.balance.subtract(amount);
     }
 
-	public BigDecimal getBalance() {
-		return this.balance;
-	}
+    // ✅ GETTERS / SETTERS
 
-	public String getAccountNumber() {
-		return this.accountNumber;
-	}
+    public String getAccountNumber() { return accountNumber; }
+    public BigDecimal getBalance() { return balance; }
+    public AccountType getType() { return type; }
+    public Customer getCustomer() { return customer; }
+    public String getPassword() { return password; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 
-	public void setAccountNumber(String accountNumber) {
-	    this.accountNumber = accountNumber;
-	}
-
-	public void setType(AccountType type) {
-	    this.type = type;
-	}
-
-	public void setCustomer(Customer customer) {
-	    this.customer = customer;
-	}
-
-	public void setPassword(String password) {
-	    this.password = password;
-	}
-
-	public void setBalance(BigDecimal balance) {
-	    this.balance = balance;
-	}
-
-	public AccountType getType() {
-	    return this.type;
-	}
-
-	public Customer getCustomer() {
-	    return this.customer;
-	}
-
-	public LocalDateTime getCreatedAt() {
-	    return this.createdAt;
-	}
-
-	public LocalDateTime getUpdatedAt() {
-		return updatedAt;
-	}
-	public String getPassword() {
-	    return this.password;
-	}
-
-
-	public void setUpdatedAt(LocalDateTime updatedAt) {
-		this.updatedAt = updatedAt;
-	}
-
-
-    // getters & setters (same as before)
+    public void setType(AccountType type) { this.type = type; }
+    public void setCustomer(Customer customer) { this.customer = customer; }
+    public void setPassword(String password) { this.password = password; }
+    public void setBalance(BigDecimal balance) { this.balance = balance; }
 }
+    
