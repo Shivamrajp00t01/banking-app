@@ -202,3 +202,45 @@ const Login = ({ setIsAuth }) => {
 };
 
 export default Login;
+
+
+
+
+// const handleLogin = async (e) => {
+//   e.preventDefault();
+//   setLoading(true);
+
+//   // Debug: Check what values we have
+//   console.log('Login attempt with:', {
+//     accountNumber: loginData.accountNumber,
+//     password: loginData.password,
+//     accountNumberLength: loginData.accountNumber.length,
+//     passwordLength: loginData.password.length
+//   });
+
+//   // Validate before sending
+//   if (!loginData.accountNumber || !loginData.password) {
+//     showToast('Please fill in all fields', 'error');
+//     setLoading(false);
+//     return;
+//   }
+
+//   if (loginData.accountNumber.trim() === '' || loginData.password.trim() === '') {
+//     showToast('Account number and password cannot be empty', 'error');
+//     setLoading(false);
+//     return;
+//   }
+
+//   try {
+//     const result = await login(loginData.accountNumber.trim(), loginData.password.trim());
+//     console.log('Login successful:', result);
+//     showToast('Login successful!', 'success');
+//     setIsAuth(true);
+//     setTimeout(() => navigate('/dashboard'), 1000);
+//   } catch (error) {
+//     console.error('Login error:', error);
+//     showToast(error.message || 'Login failed', 'error');
+//   } finally {
+//     setLoading(false);
+//   }
+// };
