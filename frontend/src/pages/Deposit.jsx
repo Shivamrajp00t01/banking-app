@@ -22,12 +22,25 @@ const Deposit = () => {
     setLoading(true);
 
     try {
+      // Debug logs
+      console.log('=== DEPOSIT DEBUG ===');
+      console.log('Account Number:', userInfo.accountNumber);
+      console.log('Amount:', amount);
+      console.log('Calling depositAmount...');
+      
       await depositAmount(userInfo.accountNumber, amount);
+      
+      console.log('Deposit successful! Fetching updated account...');
       const account = await getAccount(userInfo.accountNumber);
+      console.log('Updated balance:', account.balance);
+      
       setToast({ message: `Deposit successful! New balance: ₹${account.balance}`, type: 'success' });
       setAmount('');
       setTimeout(() => navigate('/dashboard'), 2000);
     } catch (error) {
+      console.error('=== DEPOSIT ERROR ===');
+      console.error('Error message:', error.message);
+      console.error('Full error:', error);
       setToast({ message: error.message || 'Deposit failed', type: 'error' });
     } finally {
       setLoading(false);

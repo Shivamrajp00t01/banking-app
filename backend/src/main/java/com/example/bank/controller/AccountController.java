@@ -69,26 +69,26 @@ public class AccountController {
     }
 
     @PostMapping("/{accountNumber}/deposit")
-    public ResponseEntity<BigDecimal> deposit(
-            @PathVariable String accountNumber,
-            @RequestBody @Valid MoneyRequest request,
-            Authentication auth) {
+public ResponseEntity<BigDecimal> deposit(
+        @PathVariable String accountNumber,
+        @RequestBody @Valid MoneyRequest request,  // ✅ FIXED: Changed from @RequestParam to @RequestBody
+        Authentication auth) {
 
-        validate(accountNumber, auth);
-        bankService.deposit(accountNumber, request.getAmount());
-        return ResponseEntity.ok(bankService.getBalance(accountNumber));
-    }
+    validate(accountNumber, auth);
+    bankService.deposit(accountNumber, request.getAmount());
+    return ResponseEntity.ok(bankService.getBalance(accountNumber));
+}
 
-    @PostMapping("/{accountNumber}/withdraw")
-    public ResponseEntity<BigDecimal> withdraw(
-            @PathVariable String accountNumber,
-            @RequestBody @Valid MoneyRequest request,
-            Authentication auth) {
+@PostMapping("/{accountNumber}/withdraw")
+public ResponseEntity<BigDecimal> withdraw(
+        @PathVariable String accountNumber,
+        @RequestBody @Valid MoneyRequest request,  // ✅ Already correct
+        Authentication auth) {
 
-        validate(accountNumber, auth);
-        bankService.withdraw(accountNumber, request.getAmount());
-        return ResponseEntity.ok(bankService.getBalance(accountNumber));
-    }
+    validate(accountNumber, auth);
+    bankService.withdraw(accountNumber, request.getAmount());
+    return ResponseEntity.ok(bankService.getBalance(accountNumber));
+}
 
     @PostMapping("/{accountNumber}/transfer")
     public ResponseEntity<String> transfer(
