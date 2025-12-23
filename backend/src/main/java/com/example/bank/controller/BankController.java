@@ -1,10 +1,12 @@
 package com.example.bank.controller;
 
+import com.example.bank.dto.TransferRequest;
 import com.example.bank.model.Account;
 import com.example.bank.model.Customer;
 import com.example.bank.model.Transaction;
 import com.example.bank.repository.AccountRepository;
 import com.example.bank.repository.TransactionRepository;
+
 
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
@@ -151,56 +153,55 @@ public class BankController {
     }
 
     // ✅ TRANSFER
-    @PostMapping("/{fromId}/transfer")
-    @Transactional
-    public ResponseEntity<?> transfer(
-            @PathVariable String fromId,
-            @RequestParam String toAccount,
-            @RequestParam BigDecimal amount
-    ) {
-        try {
-            if (fromId.equals(toAccount))
-                return ResponseEntity.badRequest()
-                        .body(error("Cannot transfer to same account"));
+@PostMapping("/{fromId}/transfer")
+@Transactional
+public ResponseEntity<?> transfer(
+        @PathVariable String fromId,
+        @RequestBody TransferRequest request  // ✅ Accept JSON body
+) {
+    try {
+        if (fromId.equals(request.getToAccount()))
+            return ResponseEntity.badRequest()
+                    .body(error("Cannot transfer to same account"));
 
-            Account from = accountRepository.findById(fromId)
-                    .orElseThrow(() -> new RuntimeException("Source account not found"));
+        Account from = accountRepository.findById(fromId)
+                .orElseThrow(() -> new RuntimeException("Source account not found"));
 
-            Account to = accountRepository.findById(toAccount)
-                    .orElseThrow(() -> new RuntimeException("Destination account not found"));
+        Account to = accountRepository.findById(request.getToAccount())
+                .orElseThrow(() -> new RuntimeException("Destination account not found"));
 
-            if (amount.compareTo(BigDecimal.ZERO) <= 0)
-                return ResponseEntity.badRequest()
-                        .body(error("Amount must be greater than zero"));
+        if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0)
+            return ResponseEntity.badRequest()
+                    .body(error("Amount must be greater than zero"));
 
-            if (from.getBalance().compareTo(amount) < 0)
-                return ResponseEntity.badRequest()
-                        .body(error("Insufficient balance"));
+        if (from.getBalance().compareTo(request.getAmount()) < 0)
+            return ResponseEntity.badRequest()
+                    .body(error("Insufficient balance"));
 
-            from.withdraw(amount);
-            to.deposit(amount);
+        from.withdraw(request.getAmount());
+        to.deposit(request.getAmount());
 
-            accountRepository.save(from);
-            accountRepository.save(to);
+        accountRepository.save(from);
+        accountRepository.save(to);
 
-            transactionRepository.save(
-                    Transaction.transferOut(from, toAccount, amount)
-            );
-            transactionRepository.save(
-                    Transaction.transferIn(to, fromId, amount)
-            );
+        transactionRepository.save(
+                Transaction.transferOut(from, request.getToAccount(), request.getAmount())
+        );
+        transactionRepository.save(
+                Transaction.transferIn(to, fromId, request.getAmount())
+        );
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Transfer successful");
-            response.put("fromBalance", from.getBalance());
-            response.put("toBalance", to.getBalance());
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Transfer successful");
+        response.put("fromBalance", from.getBalance());
+        response.put("toBalance", to.getBalance());
 
-            return ResponseEntity.ok(response);
+        return ResponseEntity.ok(response);
 
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(error(e.getMessage()));
-        }
+    } catch (Exception e) {
+        return ResponseEntity.badRequest().body(error(e.getMessage()));
     }
+}
 
     // ✅ GET TRANSACTIONS (FIXED TO MATCH REPO)
     @GetMapping("/{id}/transactions")
